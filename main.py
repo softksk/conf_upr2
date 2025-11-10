@@ -1,5 +1,5 @@
 """
-Этап 3: Построение графа зависимостей (BFS + рекурсия)
+Этап 4: Порядок загрузки зависимостей
 Автор: Кирюшин Артём, ИКБО-51-24
 """
 
@@ -107,6 +107,35 @@ class DependencyGraph:
                 self.build_graph_bfs_recursive(dep, depth + 1)
         
         return self.graph
+    
+    def get_loading_order(self) -> List[str]:
+        """Топологическая сортировка (алгоритм Кана)"""
+        # Вычисляем входящие степени (сколько пакетов зависят от данного)
+        in_degree = {pkg: 0 for pkg in self.graph}
+        
+        # Для каждой зависимости: если A -> B, то B загружается раньше A
+        for pkg in self.graph:
+            for dep in self.graph[pkg]:
+                if dep in self.graph:  # dep может быть вне нашего графа
+                    in_degree[pkg] += 1  # pkg зависит от dep, значит у pkg больше входящих связей
+        
+        # Начинаем с пакетов без зависимостей (in_degree == 0)
+        queue = [pkg for pkg, degree in in_degree.items() if degree == 0]
+        result = []
+        
+        while queue:
+            # Берем пакет без зависимостей
+            pkg = queue.pop(0)
+            result.append(pkg)
+            
+            # Находим все пакеты, которые зависят от текущего
+            for other_pkg in self.graph:
+                if pkg in self.graph[other_pkg] and other_pkg in in_degree:
+                    in_degree[other_pkg] -= 1
+                    if in_degree[other_pkg] == 0:
+                        queue.append(other_pkg)
+        
+        return result
 
 
 def main():
@@ -131,7 +160,12 @@ def main():
         for pkg, deps in sorted(graph.items()):
             print(f"  {pkg}: {deps if deps else '(нет зависимостей)'}")
         
-        print("\n✓ Этап 3 выполнен успешно")
+        print("\nПорядок загрузки:")
+        order = graph_builder.get_loading_order()
+        for i, pkg in enumerate(order, 1):
+            print(f"  {i}. {pkg}")
+        
+        print("\n✓ Этап 4 выполнен успешно")
         
     except Exception as e:
         print(f"Ошибка: {e}", file=sys.stderr)
