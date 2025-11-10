@@ -1,0 +1,27 @@
+@startuml
+
+"libpython3-stdlib" --> "libpython3.8-stdlib"
+"libpython3.8-stdlib" --> "libpython3.8-minimal"
+"libpython3.8-stdlib" --> "mime-support"
+"libpython3.8-stdlib" --> "libbz2-1.0"
+"libpython3.8-stdlib" --> "libc6"
+"libpython3.8-stdlib" --> "libcrypt1"
+"libpython3.8-stdlib" --> "libdb5.3"
+"libpython3.8-stdlib" --> "libffi7"
+"libpython3.8-stdlib" --> "liblzma5"
+"libpython3.8-stdlib" --> "libmpdec2"
+"libpython3.8-stdlib" --> "libncursesw6"
+"libpython3.8-stdlib" --> "libreadline8"
+"libpython3.8-stdlib" --> "libsqlite3-0"
+"libpython3.8-stdlib" --> "libtinfo6"
+"libpython3.8-stdlib" --> "libuuid1"
+"python3" --> "python3.8"
+"python3" --> "libpython3-stdlib"
+"python3.8" --> "python3.8-minimal"
+"python3.8" --> "libpython3.8-stdlib"
+"python3.8" --> "mime-support"
+"python3.8-minimal" --> "libpython3.8-minimal"
+"python3.8-minimal" --> "libexpat1"
+"python3.8-minimal" --> "zlib1g"
+
+@enduml

@@ -1,5 +1,5 @@
 """
-Этап 4: Порядок загрузки зависимостей
+Этап 5: Визуализация зависимостей (PlantUML + ASCII)
 Автор: Кирюшин Артём, ИКБО-51-24
 """
 
@@ -110,14 +110,13 @@ class DependencyGraph:
     
     def get_loading_order(self) -> List[str]:
         """Топологическая сортировка (алгоритм Кана)"""
-        # Вычисляем входящие степени (сколько пакетов зависят от данного)
+        # Вычисляем входящие степени (сколько зависимостей внутри графа у каждого пакета)
         in_degree = {pkg: 0 for pkg in self.graph}
         
         # Для каждой зависимости: если A -> B, то B загружается раньше A
         for pkg in self.graph:
-            for dep in self.graph[pkg]:
-                if dep in self.graph:  # dep может быть вне нашего графа
-                    in_degree[pkg] += 1  # pkg зависит от dep, значит у pkg больше входящих связей
+            deps_in_graph = [dep for dep in self.graph[pkg] if dep in self.graph]
+            in_degree[pkg] = len(deps_in_graph)
         
         # Начинаем с пакетов без зависимостей (in_degree == 0)
         queue = [pkg for pkg, degree in in_degree.items() if degree == 0]
@@ -135,7 +134,92 @@ class DependencyGraph:
                     if in_degree[other_pkg] == 0:
                         queue.append(other_pkg)
         
+        # Если остались необработанные пакеты (цикл), добавляем их в конец
+        remaining = [pkg for pkg in self.graph if pkg not in result]
+        if remaining:
+            result.extend(sorted(remaining))  # Добавляем в алфавитном порядке
+        
         return result
+
+
+class Visualizer:
+    """Визуализация графа зависимостей"""
+    def __init__(self, graph: Dict[str, List[str]]):
+        self.graph = graph
+    
+    def generate_plantuml(self, output_path: str):
+        """Генерация PlantUML диаграммы"""
+        lines = ['@startuml', '']
+        for pkg, deps in sorted(self.graph.items()):
+            for dep in deps:
+                lines.append(f'"{pkg}" --> "{dep}"')
+        lines.extend(['', '@enduml'])
+        
+        # Создаем директорию если не существует
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines))
+        
+        # Генерация PNG через PlantUML сервер
+        self._generate_png_from_plantuml(output_path)
+    
+    def _generate_png_from_plantuml(self, puml_path: str):
+        """Генерация PNG изображения через PlantUML сервер"""
+        try:
+            import zlib
+            import base64
+            
+            # Читаем PlantUML файл
+            with open(puml_path, 'r', encoding='utf-8') as f:
+                plantuml_code = f.read()
+            
+            # Кодируем для PlantUML сервера
+            zlibbed = zlib.compress(plantuml_code.encode('utf-8'))
+            compressed = zlibbed[2:-4]  # Убираем заголовок и футер zlib
+            encoded = base64.b64encode(compressed).decode('utf-8')
+            
+            # PlantUML использует специальную кодировку
+            plantuml_encoding = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_"
+            standard_encoding = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+            
+            encoded_plantuml = ""
+            for char in encoded:
+                if char in standard_encoding:
+                    idx = standard_encoding.index(char)
+                    encoded_plantuml += plantuml_encoding[idx]
+                else:
+                    encoded_plantuml += char
+            
+            # Скачиваем PNG с PlantUML сервера
+            url = f"http://www.plantuml.com/plantuml/png/{encoded_plantuml}"
+            png_path = puml_path.replace('.puml', '.png')
+            
+            response = request.urlopen(url, timeout=30)
+            with open(png_path, 'wb') as f:
+                f.write(response.read())
+            
+            print(f"PNG изображение сохранено: {png_path}")
+        except Exception as e:
+            print(f"Не удалось создать PNG: {e}")
+    
+    def print_ascii_tree(self, root: str, prefix: str = '', visited: Set[str] = None):
+        """Рекурсивный ASCII вывод дерева зависимостей"""
+        if visited is None:
+            visited = set()
+        
+        if root in visited:
+            print(f"{prefix}{root} (цикл)")
+            return
+        
+        visited.add(root)
+        print(f"{prefix}{root}")
+        
+        deps = self.graph.get(root, [])
+        for i, dep in enumerate(deps):
+            is_last = (i == len(deps) - 1)
+            connector = "└── " if is_last else "├── "
+            self.print_ascii_tree(dep, prefix + connector, visited.copy())
 
 
 def main():
@@ -165,7 +249,19 @@ def main():
         for i, pkg in enumerate(order, 1):
             print(f"  {i}. {pkg}")
         
-        print("\n✓ Этап 4 выполнен успешно")
+        # Визуализация
+        visualizer = Visualizer(graph)
+        
+        plantuml_path = config.get('plantuml_output')
+        if plantuml_path:
+            visualizer.generate_plantuml(plantuml_path)
+            print(f"\nPlantUML диаграмма сохранена: {plantuml_path}")
+        
+        if config.get_bool('show_ascii_tree'):
+            print(f"\nДерево зависимостей для '{package_name}':")
+            visualizer.print_ascii_tree(package_name)
+        
+        print("\n✓ Этап 5 выполнен успешно")
         
     except Exception as e:
         print(f"Ошибка: {e}", file=sys.stderr)
