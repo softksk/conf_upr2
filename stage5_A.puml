@@ -1,0 +1,11 @@
+@startuml
+skinparam packageStyle rectangle
+skinparam defaultFontName Arial
+
+[A] --> [B]
+[A] --> [C]
+[B] --> [D]
+[C] --> [D]
+[C] --> [E]
+[E] --> [F]
+@enduml
